@@ -26,6 +26,13 @@ class Waybill extends \yii\base\BaseObject implements \JsonSerializable
     public $orderId;
 
     /**
+     * JD物流查询特殊参数
+     *
+     * @var string
+     */
+    public $customerName;
+
+    /**
      * Express company name, not ended-with `物流` / `快递` / `快运` / `速递` / `速运`
      *
      * @var string
@@ -38,7 +45,7 @@ class Waybill extends \yii\base\BaseObject implements \JsonSerializable
      * @var string|int
      */
     public $status;
-    
+
     /**
      * Traces data
      *

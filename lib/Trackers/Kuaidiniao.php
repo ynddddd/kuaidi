@@ -4,21 +4,23 @@ namespace Shophx\Express\Trackers;
 
 use Curl\Curl;
 use Shophx\Express\Exceptions\TrackingException;
-use Shophx\Express\Waybill;
 use Shophx\Express\Status;
+use Shophx\Express\Waybill;
 
 class Kuaidiniao extends BaseTracker implements TrackerInterface
 {
     use TrackerTrait;
 
     public $EBusinessID;
-
+    public $SelectType; //免费 OR 收费
     public $AppKey;
 
     public static function getSupportedExpresses()
     {
         return [
+            '韵达快运' => 'YDKY',
             '京东' => 'JD',
+            '京东快运' => 'JDKY',
             '顺丰' => 'SF',
             '申通' => 'STO',
             '韵达' => 'YD',
@@ -38,7 +40,7 @@ class Kuaidiniao extends BaseTracker implements TrackerInterface
             '城际' => 'CJKD',
             '德邦' => 'DBL',
             '汇丰' => 'HFWL',
-            // '百世' => 'BTWL',
+            '百世快运' => 'BTWL',
             '安捷' => 'AJ',
             '安能' => 'ANE',
             '安信达' => 'AXD',
@@ -128,42 +130,29 @@ class Kuaidiniao extends BaseTracker implements TrackerInterface
             'EWE' => 'EWE',
             '特急送' => 'TJS',
             '承诺达' => 'CND',
+            '万家康' => 'WJK',
+            '速派快递' => 'FASTGO',
+            '秦远海运' => 'QYHY',
+            '壹米滴答' => 'YMDD',
+            '易达通' => 'YDT',
+            '极兔' => 'JTSD',
+            '澳德物流' => 'AUODEXPRESS',
         ];
     }
 
     public function track(Waybill $waybill)
     {
         $curl = new Curl();
-        $requestData = json_encode([
+        $requestData = [
             'ShipperCode' => static::getExpressCode($waybill->express),
             'LogisticCode' => $waybill->id,
             'OrderCode' => $waybill->orderId,
-        ]);
-        $postContent1 = [
-            'RequestData' => urlencode($requestData),
-            'EBusinessID' => $this->EBusinessID,
-            'RequestType' => '1008',
-            'DataSign' => base64_encode(md5($requestData . $this->AppKey)),
-            'DataType' => '2',
+            //'CustomerName' => $waybill->customerName, 清除京东物流
         ];
-        $curl->post(
-            'http://api.kdniao.com/api/dist',
-            $postContent1
-        );
-        $response = static::getJsonResponse($curl);
-        $postContent2 = [
-            'RequestData' => urlencode($requestData),
-            'EBusinessID' => $this->EBusinessID,
-            'RequestType' => '1002',
-            'DataSign' => base64_encode(md5($requestData . $this->AppKey)),
-            'DataType' => '2',
-        ];
-        $curl->post(
-            'http://api.kdniao.com/Ebusiness/EbusinessOrderHandle.aspx',
-            $postContent2
-        );
-        $response = static::getJsonResponse($curl);
-        if ($response->Success == false) {
+        $requestData['ShipperCode'] === 'SF' && $requestData['CustomerName'] = $waybill->customerName;
+        $requestData = json_encode($requestData);
+
+        if ($this->SelectType === 'paid') {
             $postContent3 = [
                 'RequestData' => urlencode($requestData),
                 'EBusinessID' => $this->EBusinessID,
@@ -172,12 +161,26 @@ class Kuaidiniao extends BaseTracker implements TrackerInterface
                 'DataType' => '2',
             ];
             $curl->post(
-                'http://api.kdniao.com/Ebusiness/EbusinessOrderHandle.aspx',
+                'https://api.kdniao.com/Ebusiness/EbusinessOrderHandle.aspx',
                 $postContent3
             );
             $response = static::getJsonResponse($curl);
+			
+        } else {
+            //free
+            $postContent2 = [
+                'RequestData' => urlencode($requestData),
+                'EBusinessID' => $this->EBusinessID,
+                'RequestType' => '1002',
+                'DataSign' => base64_encode(md5($requestData . $this->AppKey)),
+                'DataType' => '2',
+            ];
+            $curl->post(
+                'https://api.kdniao.com/Ebusiness/EbusinessOrderHandle.aspx',
+                $postContent2
+            );
+            $response = static::getJsonResponse($curl);			
         }
-
         if ($response->Success == false) {
             throw new TrackingException($response->Reason, $response);
         }
